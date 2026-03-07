@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Modbus Cihaz İzleme</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0f1117;
+      --surface:   #1a1d27;
+      --border:    #2a2e40;
+      --accent:    #6c8ef5;
+      --green:     #22c55e;
+      --red:       #ef4444;
+      --text:      #e2e8f0;
+      --muted:     #64748b;
+      --card-glow: rgba(108, 142, 245, 0.08);
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+    header h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #6c8ef5, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    header p {
+      margin-top: 0.4rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.25rem;
+      width: 100%;
+      max-width: 680px;
+    }
+
+    .kart {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.6rem 1.8rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      box-shadow: 0 0 0 0 var(--card-glow);
+      transition: box-shadow 0.3s ease, border-color 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .kart::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at top left, var(--card-glow), transparent 70%);
+      pointer-events: none;
+    }
+    .kart:hover {
+      border-color: #3a3f58;
+      box-shadow: 0 8px 32px rgba(108, 142, 245, 0.12);
+    }
+
+    .kart-baslik {
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .kart-ikon {
+      font-size: 1.4rem;
+      position: absolute;
+      top: 1.4rem;
+      right: 1.4rem;
+      opacity: 0.35;
+    }
+    .kart-deger {
+      font-size: 2.4rem;
+      font-weight: 700;
+      line-height: 1;
+      color: var(--text);
+      transition: color 0.4s;
+    }
+    .kart-birim {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-left: 2px;
+    }
+
+    /* Bağlantı durumu kartı — tam genişlik */
+    .kart.tam-genislik {
+      grid-column: 1 / -1;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.2rem 1.8rem;
+    }
+    .kart.tam-genislik .kart-deger {
+      font-size: 1.2rem;
+      font-weight: 600;
+    }
+    .kart.tam-genislik .kart-baslik { margin-bottom: 0; }
+
+    .durum-nokta {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 8px;
+      transition: background 0.4s;
+      animation: nabiz 2s infinite;
+    }
+
+    @keyframes nabiz {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+
+    .durum-bagli    { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .durum-kesik    { background: var(--red);   box-shadow: 0 0 8px var(--red);   animation: none; }
+
+    .renk-bagli  { color: var(--green); }
+    .renk-kesik  { color: var(--red);   }
+
+    /* Zaman kartı */
+    #son-okuma-zamani {
+      font-size: 0.95rem;
+      font-weight: 500;
+    }
+
+    /* Bağlanıyor göstergesi */
+    .baslangic {
+      color: var(--muted);
+      font-size: 1.6rem;
+      font-weight: 700;
+      animation: blink 1.2s ease infinite;
+    }
+    @keyframes blink { 50% { opacity: 0.3; } }
+
+    footer {
+      margin-top: 2rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🔌 Modbus Cihaz İzleme</h1>
+    <p>Gerçek zamanlı SignalR veri akışı &mdash; saniyede 1 güncelleme</p>
+  </header>
+
+  <div class="grid">
+
+    <!-- Sıcaklık -->
+    <div class="kart">
+      <span class="kart-ikon">🌡️</span>
+      <div class="kart-baslik">Sicaklik</div>
+      <div class="kart-deger">
+        <span id="sicaklik" class="baslangic">--</span>
+        <span class="kart-birim">°C</span>
+      </div>
+    </div>
+
+    <!-- Nem -->
+    <div class="kart">
+      <span class="kart-ikon">💧</span>
+      <div class="kart-baslik">Nem</div>
+      <div class="kart-deger">
+        <span id="nem" class="baslangic">--</span>
+        <span class="kart-birim">%</span>
+      </div>
+    </div>
+
+    <!-- Son Okuma Zamanı -->
+    <div class="kart tam-genislik" style="grid-column: 1 / -1; flex-direction: column; align-items: flex-start; padding: 1.2rem 1.8rem;">
+      <div class="kart-baslik">Son Okuma Zamani</div>
+      <div class="kart-deger" style="font-size:1rem; font-weight:500; margin-top:0.3rem;">
+        <span id="son-okuma-zamani" class="baslangic">Bekleniyor...</span>
+      </div>
+    </div>
+
+    <!-- Bağlantı Durumu -->
+    <div class="kart tam-genislik">
+      <div>
+        <div class="kart-baslik">Baglanti Durumu</div>
+        <div class="kart-deger" style="margin-top:0.3rem;">
+          <span id="durum-nokta" class="durum-nokta durum-kesik"></span>
+          <span id="baglanti-durumu" class="baslangic renk-kesik">Sunucuya baglaniliyor...</span>
+        </div>
+      </div>
+      <span style="font-size:2rem; opacity:0.25;">📡</span>
+    </div>
+
+  </div>
+
+  <footer>ModbusIzleme &copy; 2026</footer>
+
+  <!-- SignalR CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
+
+  <script>
+    const baglanti = new signalR.HubConnectionBuilder()
+      .withUrl("/cihazHub")
+      .withAutomaticReconnect([0, 1000, 3000, 5000, 10000])
+      .configureLogging(signalR.LogLevel.Warning)
+      .build();
+
+    // Gelen veri olayı
+    baglanti.on("CihazVerisiGuncellendi", function (veri) {
+      const bagliMi = veri.baglantiDurumu !== "Bagli Degil";
+
+      // Sicaklik
+      document.getElementById("sicaklik").textContent = bagliMi
+        ? veri.sicaklik.toFixed(1)
+        : "--";
+      document.getElementById("sicaklik").className = "";
+
+      // Nem
+      document.getElementById("nem").textContent = bagliMi
+        ? veri.nem.toFixed(1)
+        : "--";
+      document.getElementById("nem").className = "";
+
+      // Son okuma zamanı
+      const zaman = new Date(veri.sonOkumaZamani);
+      document.getElementById("son-okuma-zamani").textContent = bagliMi
+        ? zaman.toLocaleString("tr-TR", { hour12: false })
+        : "--";
+      document.getElementById("son-okuma-zamani").className = "";
+
+      // Bağlantı durumu + renk
+      const durumEl  = document.getElementById("baglanti-durumu");
+      const noktaEl  = document.getElementById("durum-nokta");
+      durumEl.textContent = veri.baglantiDurumu;
+      if (bagliMi) {
+        durumEl.className = "renk-bagli";
+        noktaEl.className = "durum-nokta durum-bagli";
+      } else {
+        durumEl.className = "renk-kesik";
+        noktaEl.className = "durum-nokta durum-kesik";
+      }
+    });
+
+    // Yeniden bağlanma olayları
+    baglanti.onreconnecting(function () {
+      document.getElementById("baglanti-durumu").textContent = "Yeniden baglaniliyor...";
+      document.getElementById("baglanti-durumu").className   = "renk-kesik";
+      document.getElementById("durum-nokta").className       = "durum-nokta durum-kesik";
+    });
+
+    baglanti.onreconnected(function () {
+      document.getElementById("baglanti-durumu").textContent = "Baglanti yenilendi";
+      document.getElementById("baglanti-durumu").className   = "renk-bagli";
+      document.getElementById("durum-nokta").className       = "durum-nokta durum-bagli";
+    });
+
+    // Bağlantıyı başlat
+    (async function basla() {
+      try {
+        await baglanti.start();
+        console.log("SignalR baglantisi kuruldu.");
+      } catch (hata) {
+        console.error("SignalR baglanti hatasi:", hata);
+        setTimeout(basla, 3000);
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+@ModbusIzleme_HostAddress = http://localhost:5051
+
+GET {{ModbusIzleme_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
